@@ -45,6 +45,22 @@
     display: flex; justify-content: space-between;
     margin-top: 10px; font-size: 14px; opacity: 0.8;
   }
+  .progress-bars {
+    margin-top: 10px;
+  }
+  .progress-bar {
+    background: #2d2d2d;
+    border-radius: 6px;
+    overflow: hidden;
+    margin-bottom: 5px;
+    height: 14px;
+  }
+  .progress-bar-fill {
+    height: 100%;
+    background: var(--primary);
+    width: 0%;
+    transition: width 0.3s ease;
+  }
   @media (max-width: 600px) {
     body { padding: 10px; }
     .card { padding: 15px; }
@@ -58,15 +74,33 @@
 </header>
 <main>
   <div class="card">
-    <div class="form-group"><label for="startHex">Start Key (HEX):</label><input type="text" id="startHex" value="0000000000000001"></div>
-    <div class="form-group"><label for="endHex">End Key (HEX):</label><input type="text" id="endHex" value="0000000000001000"></div>
-    <div class="form-group"><label for="prefix">Address Prefix:</label><input type="text" id="prefix" value="1"></div>
-    <div class="form-group"><label for="mode">Search Mode:</label>
-      <select id="mode"><option value="sequential">Sequential</option><option value="random">Random</option></select>
+    <div class="form-group">
+      <label for="startHex">Start Key (HEX):</label>
+      <input type="text" id="startHex" value="0000000000000001" />
+    </div>
+    <div class="form-group">
+      <label for="endHex">End Key (HEX):</label>
+      <input type="text" id="endHex" value="0000000000001000" />
+    </div>
+    <div class="form-group">
+      <label for="prefix">Address Prefix:</label>
+      <input type="text" id="prefix" value="1" />
+    </div>
+    <div class="form-group">
+      <label for="mode">Search Mode:</label>
+      <select id="mode">
+        <option value="sequential">Sequential</option>
+        <option value="random">Random</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label for="workerCount">Number of Workers (Threads):</label>
+      <input type="number" id="workerCount" min="1" max="16" value="4" />
     </div>
     <div class="btn-group">
       <button id="toggleBtn">Start Search</button>
       <button id="resetBtn" style="background:#424242">Reset</button>
+      <button id="downloadLogBtn" style="background:#2e7d32">Download Log</button>
     </div>
   </div>
   <div class="card">
@@ -75,6 +109,7 @@
       <span id="status">Ready</span>
       <span id="counter">Keys checked: 0</span>
     </div>
+    <div class="progress-bars" id="progressBars"></div>
     <div class="log-container" id="log"></div>
   </div>
 </main>
@@ -83,15 +118,20 @@ const startHexInput = document.getElementById('startHex');
 const endHexInput = document.getElementById('endHex');
 const prefixInput = document.getElementById('prefix');
 const modeSelect = document.getElementById('mode');
+const workerCountInput = document.getElementById('workerCount');
 const toggleBtn = document.getElementById('toggleBtn');
 const resetBtn = document.getElementById('resetBtn');
+const downloadLogBtn = document.getElementById('downloadLogBtn');
 const statusEl = document.getElementById('status');
 const counterEl = document.getElementById('counter');
 const logEl = document.getElementById('log');
+const progressBarsContainer = document.getElementById('progressBars');
 
-let worker = null;
+let workers = [];
 let running = false;
 let keysChecked = 0;
+let numberOfWorkers = 4;
+let progressData = [];
 
 function log(msg, isFound = false) {
   const el = document.createElement('div');
@@ -101,61 +141,133 @@ function log(msg, isFound = false) {
   logEl.scrollTop = logEl.scrollHeight;
 }
 
+function saveProgress(workerId, currentKey) {
+  localStorage.setItem(`progress_worker_${workerId}`, currentKey);
+}
+
+function getProgress(workerId) {
+  return localStorage.getItem(`progress_worker_${workerId}`) || null;
+}
+
 function reset() {
-  if (worker) {
-    worker.terminate();
-    worker = null;
-  }
+  workers.forEach(w => w.terminate());
+  workers = [];
   running = false;
   keysChecked = 0;
   counterEl.textContent = 'Keys checked: 0';
   statusEl.textContent = 'Ready';
   logEl.textContent = '';
+  progressBarsContainer.innerHTML = '';
   toggleBtn.textContent = 'Start Search';
   toggleBtn.classList.remove('pause');
+  for(let i = 0; i < numberOfWorkers; i++) {
+    localStorage.removeItem(`progress_worker_${i}`);
+  }
+  progressData = [];
+}
+
+function createProgressBars(count) {
+  progressBarsContainer.innerHTML = '';
+  progressData = Array(count).fill(0);
+  for(let i = 0; i < count; i++) {
+    const container = document.createElement('div');
+    container.classList.add('progress-bar');
+    const fill = document.createElement('div');
+    fill.classList.add('progress-bar-fill');
+    fill.id = `progressFill_${i}`;
+    container.appendChild(fill);
+    progressBarsContainer.appendChild(container);
+  }
+}
+
+function updateProgressBar(workerId, percent) {
+  const fill = document.getElementById(`progressFill_${workerId}`);
+  if (fill) fill.style.width = `${percent}%`;
+}
+
+function startWorkers() {
+  const startHexRaw = startHexInput.value.trim();
+  const endHexRaw = endHexInput.value.trim();
+  const prefix = prefixInput.value.trim();
+  const mode = modeSelect.value;
+  numberOfWorkers = Math.min(Math.max(parseInt(workerCountInput.value) || 1, 1), 16);
+
+  if (!startHexRaw || !endHexRaw || !prefix) {
+    alert('Fill all fields');
+    return;
+  }
+
+  // Подготовка диапазонов
+  const bigStart = BigInt('0x' + startHexRaw.padStart(64, '0'));
+  const bigEnd = BigInt('0x' + endHexRaw.padStart(64, '0'));
+  if (bigEnd < bigStart) {
+    alert('End key must be greater than start key');
+    return;
+  }
+  const range = bigEnd - bigStart + 1n;
+  const part = range / BigInt(numberOfWorkers);
+
+  keysChecked = 0;
+  logEl.textContent = '';
+  createProgressBars(numberOfWorkers);
+
+  for (let i = 0; i < numberOfWorkers; i++) {
+    const worker = new Worker('worker.js');
+    const partStart = bigStart + part * BigInt(i);
+    const partEnd = (i === numberOfWorkers - 1) ? bigEnd : (partStart + part - 1n);
+    const resumeFrom = getProgress(i);
+
+    worker.postMessage({
+      cmd: 'start',
+      start: partStart.toString(16).padStart(64, '0'),
+      end: partEnd.toString(16).padStart(64, '0'),
+      prefix,
+      mode,
+      resumeFrom,
+    });
+
+    worker.onmessage = (e) => {
+      const data = e.data;
+      if (data.type === 'progress') {
+        keysChecked++;
+        counterEl.textContent = `Keys checked: ${keysChecked}`;
+
+        if (data.found) {
+          log(`FOUND: ${data.privateKey} => ${data.address} | WIF: ${data.wif}`, true);
+        } else {
+          // Можно логировать статус воркера, но не перегружать лог
+          // log(`Worker ${i}: Checked ${data.checkedCount} keys`);
+        }
+        saveProgress(i, data.currentKey);
+
+        // Обновим прогресс-бар воркера (условно % от части диапазона)
+        // Здесь для простоты просто инкремент по keysChecked на воркера
+        // Можно улучшить, если воркер будет отдавать процент
+        // Но пусть сейчас прогресс - грубая оценка
+        const progressPercent = ((BigInt('0x' + data.currentKey) - partStart) * 100n) / (partEnd - partStart + 1n);
+        updateProgressBar(i, Number(progressPercent));
+      }
+      if (data.type === 'done') {
+        statusEl.textContent = `Worker ${i} finished or paused`;
+        saveProgress(i, data.currentKey);
+      }
+    };
+
+    workers.push(worker);
+  }
+
+  running = true;
+  toggleBtn.textContent = 'Pause Search';
+  toggleBtn.classList.add('pause');
+  statusEl.textContent = 'Searching...';
 }
 
 toggleBtn.addEventListener('click', () => {
   if (!running) {
-    // Start
-    const startHex = startHexInput.value.trim();
-    const endHex = endHexInput.value.trim();
-    const prefix = prefixInput.value.trim();
-    const mode = modeSelect.value;
-
-    if (!startHex || !endHex || !prefix) {
-      alert('Fill all fields');
-      return;
-    }
-
-    worker = new Worker('worker.js');
-    worker.postMessage({ startHex, endHex, prefix, mode });
-    worker.onmessage = (e) => {
-      const { type, data } = e.data;
-      if (type === 'progress') {
-        keysChecked += data.checked;
-        counterEl.textContent = 'Keys checked: ' + keysChecked;
-        statusEl.textContent = data.status;
-        if (data.found) {
-          log(`FOUND: Private Key ${data.privateKey} => Address ${data.address}`, true);
-        } else {
-          log(data.status);
-        }
-      }
-    };
-
-    running = true;
-    toggleBtn.textContent = 'Pause Search';
-    toggleBtn.classList.add('pause');
-    statusEl.textContent = 'Searching...';
-    logEl.textContent = '';
-    keysChecked = 0;
+    startWorkers();
   } else {
-    // Pause
-    if (worker) {
-      worker.terminate();
-      worker = null;
-    }
+    workers.forEach(w => w.terminate());
+    workers = [];
     running = false;
     toggleBtn.textContent = 'Start Search';
     toggleBtn.classList.remove('pause');
@@ -164,6 +276,16 @@ toggleBtn.addEventListener('click', () => {
 });
 
 resetBtn.addEventListener('click', reset);
+
+downloadLogBtn.addEventListener('click', () => {
+  const blob = new Blob([logEl.textContent], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `bitcoin_key_finder_log_${Date.now()}.txt`;
+  a.click();
+  URL.revokeObjectURL(url);
+});
 
 reset();
 </script>
