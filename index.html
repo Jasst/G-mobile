@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Bitcoin Key Finder</title>
+<script src="bitcoinjs-lib.min.js"></script>
+<style>
+  :root {
+    --bg: #121212;
+    --card: #1e1e1e;
+    --primary: #bb86fc;
+    --text: #e0e0e0;
+    --success: #4caf50;
+    --input: #2d2d2d;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, sans-serif; }
+  body { background: var(--bg); color: var(--text); line-height: 1.6; padding: 20px; max-width: 800px; margin: 0 auto; }
+  header { text-align: center; margin-bottom: 20px; padding: 10px; border-bottom: 1px solid #333; }
+  h1 { color: var(--primary); font-size: 1.8rem; }
+  .card { background: var(--card); border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+  .form-group { margin-bottom: 15px; }
+  label { display: block; margin-bottom: 5px; font-weight: 500; }
+  input, select, button {
+    width: 100%; padding: 12px; border-radius: 4px;
+    border: 1px solid #333; background: var(--input);
+    color: var(--text); font-size: 16px;
+  }
+  button {
+    background: var(--primary); color: #000; font-weight: 600;
+    cursor: pointer; border: none; transition: opacity 0.3s;
+  }
+  button:disabled { opacity: 0.6; cursor: not-allowed; }
+  button:hover:not(:disabled) { opacity: 0.9; }
+  .btn-group { display: flex; gap: 10px; }
+  .btn-group button { flex: 1; }
+  #toggleBtn.pause { background: #ff9800; }
+  .log-container {
+    max-height: 300px; overflow-y: auto; background: #000;
+    border-radius: 4px; padding: 15px; font-family: monospace;
+    white-space: pre-wrap; margin-top: 10px;
+  }
+  .found { color: var(--success); font-weight: bold; }
+  .status {
+    display: flex; justify-content: space-between;
+    margin-top: 10px; font-size: 14px; opacity: 0.8;
+  }
+  @media (max-width: 600px) {
+    body { padding: 10px; }
+    .card { padding: 15px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Bitcoin Key Finder</h1>
+  <p>Offline distributed private key search</p>
+</header>
+<main>
+  <div class="card">
+    <div class="form-group"><label for="startHex">Start Key (HEX):</label><input type="text" id="startHex" value="0000000000000001"></div>
+    <div class="form-group"><label for="endHex">End Key (HEX):</label><input type="text" id="endHex" value="0000000000001000"></div>
+    <div class="form-group"><label for="prefix">Address Prefix:</label><input type="text" id="prefix" value="1"></div>
+    <div class="form-group"><label for="mode">Search Mode:</label>
+      <select id="mode"><option value="sequential">Sequential</option><option value="random">Random</option></select>
+    </div>
+    <div class="btn-group">
+      <button id="toggleBtn">Start Search</button>
+      <button id="resetBtn" style="background:#424242">Reset</button>
+    </div>
+  </div>
+  <div class="card">
+    <h2>Activity Log</h2>
+    <div class="status">
+      <span id="status">Ready</span>
+      <span id="counter">Keys checked: 0</span>
+    </div>
+    <div class="log-container" id="log"></div>
+  </div>
+</main>
+<script>
+const startHexInput = document.getElementById('startHex');
+const endHexInput = document.getElementById('endHex');
+const prefixInput = document.getElementById('prefix');
+const modeSelect = document.getElementById('mode');
+const toggleBtn = document.getElementById('toggleBtn');
+const resetBtn = document.getElementById('resetBtn');
+const statusEl = document.getElementById('status');
+const counterEl = document.getElementById('counter');
+const logEl = document.getElementById('log');
+
+let worker = null;
+let running = false;
+let keysChecked = 0;
+
+function log(msg, isFound = false) {
+  const el = document.createElement('div');
+  el.textContent = msg;
+  if (isFound) el.classList.add('found');
+  logEl.appendChild(el);
+  logEl.scrollTop = logEl.scrollHeight;
+}
+
+function reset() {
+  if (worker) {
+    worker.terminate();
+    worker = null;
+  }
+  running = false;
+  keysChecked = 0;
+  counterEl.textContent = 'Keys checked: 0';
+  statusEl.textContent = 'Ready';
+  logEl.textContent = '';
+  toggleBtn.textContent = 'Start Search';
+  toggleBtn.classList.remove('pause');
+}
+
+toggleBtn.addEventListener('click', () => {
+  if (!running) {
+    // Start
+    const startHex = startHexInput.value.trim();
+    const endHex = endHexInput.value.trim();
+    const prefix = prefixInput.value.trim();
+    const mode = modeSelect.value;
+
+    if (!startHex || !endHex || !prefix) {
+      alert('Fill all fields');
+      return;
+    }
+
+    worker = new Worker('worker.js');
+    worker.postMessage({ startHex, endHex, prefix, mode });
+    worker.onmessage = (e) => {
+      const { type, data } = e.data;
+      if (type === 'progress') {
+        keysChecked += data.checked;
+        counterEl.textContent = 'Keys checked: ' + keysChecked;
+        statusEl.textContent = data.status;
+        if (data.found) {
+          log(`FOUND: Private Key ${data.privateKey} => Address ${data.address}`, true);
+        } else {
+          log(data.status);
+        }
+      }
+    };
+
+    running = true;
+    toggleBtn.textContent = 'Pause Search';
+    toggleBtn.classList.add('pause');
+    statusEl.textContent = 'Searching...';
+    logEl.textContent = '';
+    keysChecked = 0;
+  } else {
+    // Pause
+    if (worker) {
+      worker.terminate();
+      worker = null;
+    }
+    running = false;
+    toggleBtn.textContent = 'Start Search';
+    toggleBtn.classList.remove('pause');
+    statusEl.textContent = 'Paused';
+  }
+});
+
+resetBtn.addEventListener('click', reset);
+
+reset();
+</script>
+</body>
+</html>
