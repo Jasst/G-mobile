@@ -1,0 +1,139 @@
+:root {
+  --bg: #f0f2f5;
+  --fg: #333;
+  --accent: #1976d2;
+  --accent-light: #63a4ff;
+  --input-bg: #fff;
+  --input-border: #ccc;
+  --btn-bg: var(--accent);
+  --btn-hover: var(--accent-light);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: Arial, sans-serif;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  min-height: 100vh;
+}
+
+.container {
+  width: 100%;
+  max-width: 480px;
+  padding: 20px;
+}
+
+h1 {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.field-row {
+  margin-bottom: 15px;
+}
+
+.field-row label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: bold;
+}
+
+.input-with-btn {
+  display: flex;
+}
+
+.input-with-btn input {
+  flex: 1;
+  padding: 8px;
+  border: 1px solid var(--input-border);
+  border-right: none;
+  border-radius: 4px 0 0 4px;
+  background: var(--input-bg);
+}
+
+.input-with-btn .paste-btn {
+  width: 40px;
+  border: 1px solid var(--input-border);
+  border-left: none;
+  background: var(--btn-bg);
+  color: #fff;
+  font-size: 18px;
+  border-radius: 0 4px 4px 0;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.input-with-btn .paste-btn:hover {
+  background: var(--btn-hover);
+}
+
+.buttons-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 20px;
+  justify-content: space-between;
+}
+
+.buttons-row button {
+  flex: 1 1 calc(33% - 10px);
+  padding: 10px;
+  background: var(--btn-bg);
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.buttons-row button:hover {
+  background: var(--btn-hover);
+}
+
+.progress-container {
+  position: relative;
+  height: 24px;
+  background: #ddd;
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 20px;
+}
+
+#progressBar {
+  width: 0%;
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.3s ease;
+}
+
+#progressText {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  line-height: 24px;
+  font-size: 14px;
+  color: #000;
+}
+
+#found p {
+  margin: 5px 0;
+  word-break: break-all;
+}
+
+@media (max-width: 400px) {
+  .buttons-row {
+    flex-direction: column;
+  }
+  .buttons-row button {
+    flex: 1 1 100%;
+  }
+}
