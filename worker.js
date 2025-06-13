@@ -1,88 +1,93 @@
 // worker.js
+// Эмулируем window в воркере и загружаем bundle.js с библиотеками
+self.window = self;
+importScripts('libs/bundle.js');
 
-importScripts('bitcoinjs-lib.min.js'); // Если нужен bitcoinjs, подключаем
+// Из bundle.js
+const BNAll   = window.bn;
+const ECClass = window.elliptic.ec;
+const hashjs  = window.hash;
+const bs58all = window.bs58;
+const Buffer  = window.Buffer;
 
-// Вспомогательная функция для инкремента ключа (HEX, 64 символа)
-function incrementHex(hex) {
-  let num = BigInt('0x' + hex);
-  num += 1n;
-  let s = num.toString(16);
-  return s.padStart(64, '0');
+if (!BNAll || !ECClass || !hashjs || !bs58all || !Buffer) {
+  postMessage({ type: 'error', error: 'Не загружены библиотеки!' });
+  close();
 }
 
-// Проверка адреса по префиксу
-function checkAddress(privateKeyHex, prefix) {
-  try {
-    const keyBuffer = Buffer.from(privateKeyHex, 'hex');
-    const keyPair = bitcoinjs.ECPair.fromPrivateKey(keyBuffer);
-    const { address } = bitcoinjs.payments.p2pkh({ pubkey: keyPair.publicKey });
-    return address.startsWith(prefix) ? { address, wif: keyPair.toWIF() } : null;
-  } catch (e) {
-    return null;
-  }
+const ec = new ECClass('secp256k1');
+const BN = BNAll;
+// Универсальный поиск функции encode для bs58
+let bs58encode;
+if (typeof bs58all === 'function') {
+  bs58encode = bs58all;
+} else if (bs58all.encode) {
+  bs58encode = bs58all.encode;
+} else if (bs58all.default) {
+  bs58encode = (typeof bs58all.default === 'function')
+    ? bs58all.default
+    : bs58all.default.encode;
 }
 
-let running = false;
-let currentKey = null;
-let endKey = null;
-let prefix = '';
-let mode = 'sequential';
+self.onmessage = e => {
+  const { id, start, end, prefix, fullAddress } = e.data;
+  let current = new BN(start, 10);
+  const max    = new BN(end, 10);
+  const startBn= current.clone();
+  const batchSize = 500;
 
-// Основной цикл поиска
-async function searchLoop() {
-  while (running) {
-    if (currentKey === null || BigInt('0x' + currentKey) > BigInt('0x' + endKey)) {
-      // Завершили работу
-      postMessage({ type: 'done', currentKey });
-      running = false;
-      return;
+  function loop() {
+    let checkedCount = 0;
+    while (checkedCount < batchSize && current.lte(max)) {
+      // Генерация приватного ключа
+      const privHex = current.toString(16).padStart(64, '0');
+      const keyPair = ec.keyFromPrivate(privHex);
+      const P       = keyPair.getPublic();
+      const xHex    = P.getX().toString('hex').padStart(64, '0');
+      const prefixPc= P.getY().isEven() ? '02' : '03';
+      const pubBuf  = Buffer.from(prefixPc + xHex, 'hex');
+
+      // Хеширование и RIPEMD-160
+      const sha  = hashjs.sha256().update(pubBuf).digest();
+      const rmdBytes = hashjs.ripemd160().update(Buffer.from(sha)).digest();
+      const rmd = Buffer.from(rmdBytes);
+
+      // Подготовка payload и контрольной суммы
+      const payload = Buffer.concat([Buffer.from([0x00]), rmd]);
+      const csumBytes = hashjs.sha256()
+        .update(hashjs.sha256().update(payload).digest())
+        .digest().slice(0, 4);
+      const csum = Buffer.from(csumBytes);
+
+      // Полный буфер для bs58
+      const full = Buffer.concat([payload, csum]);
+      const address = bs58encode(full);
+
+      // Проверка префикса или полного адреса
+      if ((prefix && address.startsWith(prefix)) ||
+          (fullAddress && address === fullAddress)) {
+        postMessage({ type: 'found', id, key: privHex, address });
+      }
+
+      checkedCount++;
+      current = current.addn(1);
     }
 
-    // Проверка адреса
-    const res = checkAddress(currentKey, prefix);
+    // Вычисляем прогресс
+    const done  = current.sub(startBn);
+    const total = max.sub(startBn);
+    const percent = total.isZero()
+      ? 100
+      : done.muln(100).div(total).toNumber();
 
-    // Отправляем прогресс
-    postMessage({
-      type: 'progress',
-      currentKey,
-      found: !!res,
-      privateKey: res ? currentKey : null,
-      address: res ? res.address : null,
-      wif: res ? res.wif : null,
-    });
+    postMessage({ type: 'progress', id, checkedCount, progress: percent });
 
-    // Следующий ключ
-    if (mode === 'sequential') {
-      currentKey = incrementHex(currentKey);
-    } else if (mode === 'random') {
-      // Пример рандомного выбора ключа в диапазоне (упрощенно)
-      const startNum = BigInt('0x' + startKey);
-      const endNum = BigInt('0x' + endKey);
-      const range = endNum - startNum + 1n;
-      const randOffset = BigInt(Math.floor(Math.random() * Number(range)));
-      currentKey = (startNum + randOffset).toString(16).padStart(64, '0');
+    if (current.lte(max)) {
+      setTimeout(loop, 0);
+    } else {
+      postMessage({ type: 'done', id });
     }
-
-    // Чтобы не блокировать полностью event loop, yield каждые 100 итераций
-    await new Promise(r => setTimeout(r, 0));
   }
-}
 
-let startKey = null;
-
-onmessage = function (e) {
-  const data = e.data;
-  if (data.cmd === 'start') {
-    startKey = data.start;
-    currentKey = data.resumeFrom || data.start;
-    endKey = data.end;
-    prefix = data.prefix || '';
-    mode = data.mode || 'sequential';
-    running = true;
-    searchLoop();
-  }
-  if (data.cmd === 'stop') {
-    running = false;
-    postMessage({ type: 'done', currentKey });
-  }
+  loop();
 };

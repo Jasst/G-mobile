@@ -1,293 +1,230 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Bitcoin Key Finder</title>
-<script src="bitcoinjs-lib.min.js"></script>
-<style>
-  :root {
-    --bg: #121212;
-    --card: #1e1e1e;
-    --primary: #bb86fc;
-    --text: #e0e0e0;
-    --success: #4caf50;
-    --input: #2d2d2d;
-  }
-  * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, sans-serif; }
-  body { background: var(--bg); color: var(--text); line-height: 1.6; padding: 20px; max-width: 800px; margin: 0 auto; }
-  header { text-align: center; margin-bottom: 20px; padding: 10px; border-bottom: 1px solid #333; }
-  h1 { color: var(--primary); font-size: 1.8rem; }
-  .card { background: var(--card); border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-  .form-group { margin-bottom: 15px; }
-  label { display: block; margin-bottom: 5px; font-weight: 500; }
-  input, select, button {
-    width: 100%; padding: 12px; border-radius: 4px;
-    border: 1px solid #333; background: var(--input);
-    color: var(--text); font-size: 16px;
-  }
-  button {
-    background: var(--primary); color: #000; font-weight: 600;
-    cursor: pointer; border: none; transition: opacity 0.3s;
-  }
-  button:disabled { opacity: 0.6; cursor: not-allowed; }
-  button:hover:not(:disabled) { opacity: 0.9; }
-  .btn-group { display: flex; gap: 10px; }
-  .btn-group button { flex: 1; }
-  #toggleBtn.pause { background: #ff9800; }
-  .log-container {
-    max-height: 300px; overflow-y: auto; background: #000;
-    border-radius: 4px; padding: 15px; font-family: monospace;
-    white-space: pre-wrap; margin-top: 10px;
-  }
-  .found { color: var(--success); font-weight: bold; }
-  .status {
-    display: flex; justify-content: space-between;
-    margin-top: 10px; font-size: 14px; opacity: 0.8;
-  }
-  .progress-bars {
-    margin-top: 10px;
-  }
-  .progress-bar {
-    background: #2d2d2d;
-    border-radius: 6px;
-    overflow: hidden;
-    margin-bottom: 5px;
-    height: 14px;
-  }
-  .progress-bar-fill {
-    height: 100%;
-    background: var(--primary);
-    width: 0%;
-    transition: width 0.3s ease;
-  }
-  @media (max-width: 600px) {
-    body { padding: 10px; }
-    .card { padding: 15px; }
-  }
-</style>
+  <meta charset="UTF-8">
+  <title>Поиск адресов Bitcoin</title>
+  <style>
+    /* Темная тема */
+    body {
+      margin: 0;
+      padding: 20px;
+      background: #121212;
+      color: #e0e0e0;
+      font-family: Arial, sans-serif;
+    }
+    input, select, button {
+      background: #1e1e1e;
+      color: #e0e0e0;
+      border: 1px solid #333;
+      padding: 8px;
+      border-radius: 4px;
+      margin: 4px 0;
+    }
+    button {
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+    }
+    button:hover {
+      background: #333;
+    }
+    button:active {
+      transform: scale(0.98);
+    }
+    label {
+      display: block;
+      margin-top: 10px;
+    }
+    /* Статусы */
+    #status {
+      margin-top: 10px;
+      font-weight: bold;
+    }
+    #counter {
+      margin-top: 5px;
+    }
+    /* Прогресс по воркерам */
+    #progressBars {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+      gap: 10px;
+      margin-top: 20px;
+    }
+    .worker-block {
+      background: #1e1e1e;
+      padding: 10px;
+      border-radius: 6px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.5);
+    }
+    .worker-title {
+      font-size: 0.9rem;
+      margin-bottom: 6px;
+    }
+    .progress-bar {
+      width: 100%;
+      height: 8px;
+      background: #333;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      width: 0;
+      background: linear-gradient(90deg, #ff8a00, #e52e71);
+      border-radius: 4px;
+      transition: width 0.3s ease-in-out;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.7; }
+    }
+    /* Лог */
+    #log {
+      height: 250px;
+      overflow-y: auto;
+      background: #1e1e1e;
+      padding: 10px;
+      margin-top: 20px;
+      border-radius: 6px;
+      font-size: 0.9rem;
+    }
+    #log .found {
+      color: #00e676;
+      font-weight: bold;
+      animation: highlight 1s ease;
+    }
+    @keyframes highlight {
+      0% { background: rgba(0,230,118,0.2); }
+      100% { background: transparent; }
+    }
+  </style>
 </head>
 <body>
-<header>
-  <h1>Bitcoin Key Finder</h1>
-  <p>Offline distributed private key search</p>
-</header>
-<main>
-  <div class="card">
-    <div class="form-group">
-      <label for="startHex">Start Key (HEX):</label>
-      <input type="text" id="startHex" value="0000000000000001" />
-    </div>
-    <div class="form-group">
-      <label for="endHex">End Key (HEX):</label>
-      <input type="text" id="endHex" value="0000000000001000" />
-    </div>
-    <div class="form-group">
-      <label for="prefix">Address Prefix:</label>
-      <input type="text" id="prefix" value="1" />
-    </div>
-    <div class="form-group">
-      <label for="mode">Search Mode:</label>
-      <select id="mode">
-        <option value="sequential">Sequential</option>
-        <option value="random">Random</option>
-      </select>
-    </div>
-    <div class="form-group">
-      <label for="workerCount">Number of Workers (Threads):</label>
-      <input type="number" id="workerCount" min="1" max="16" value="4" />
-    </div>
-    <div class="btn-group">
-      <button id="toggleBtn">Start Search</button>
-      <button id="resetBtn" style="background:#424242">Reset</button>
-      <button id="downloadLogBtn" style="background:#2e7d32">Download Log</button>
-    </div>
+  <div>
+    <label>Начальный HEX: <input id="startHex" placeholder="e.g. 1A2B..." /></label>
+    <label>Конечный HEX: <input id="endHex" placeholder="e.g. FF.." /></label>
+    <label>Префикс адреса: <input id="prefix" placeholder="e.g. 1A" /></label>
+    <label>Полный адрес: <input id="fullAddress" placeholder="e.g. 1A1zP..." /></label>
+    <label>Воркеров: <input id="workerCount" type="number" value="4" min="1" max="16"/></label>
+    <button id="toggleBtn">Начать</button>
+    <button id="resetBtn">Сброс</button>
+    <button id="downloadLogBtn">Скачать лог</button>
   </div>
-  <div class="card">
-    <h2>Activity Log</h2>
-    <div class="status">
-      <span id="status">Ready</span>
-      <span id="counter">Keys checked: 0</span>
-    </div>
-    <div class="progress-bars" id="progressBars"></div>
-    <div class="log-container" id="log"></div>
-  </div>
-</main>
-<script>
-const startHexInput = document.getElementById('startHex');
-const endHexInput = document.getElementById('endHex');
-const prefixInput = document.getElementById('prefix');
-const modeSelect = document.getElementById('mode');
-const workerCountInput = document.getElementById('workerCount');
-const toggleBtn = document.getElementById('toggleBtn');
-const resetBtn = document.getElementById('resetBtn');
-const downloadLogBtn = document.getElementById('downloadLogBtn');
-const statusEl = document.getElementById('status');
-const counterEl = document.getElementById('counter');
-const logEl = document.getElementById('log');
-const progressBarsContainer = document.getElementById('progressBars');
+  <div id="status">Готов</div>
+  <div id="counter">Проверено: 0</div>
+  <div id="progressBars"></div>
+  <div id="log"></div>
 
-let workers = [];
-let running = false;
-let keysChecked = 0;
-let numberOfWorkers = 4;
-let progressData = [];
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const startHex = document.getElementById('startHex');
+      const endHex = document.getElementById('endHex');
+      const prefix = document.getElementById('prefix');
+      const fullAddr = document.getElementById('fullAddress');
+      const wCount = document.getElementById('workerCount');
+      const btnToggle = document.getElementById('toggleBtn');
+      const btnReset = document.getElementById('resetBtn');
+      const btnDL = document.getElementById('downloadLogBtn');
+      const statusEl = document.getElementById('status');
+      const counterEl = document.getElementById('counter');
+      const barsEl = document.getElementById('progressBars');
+      const logEl = document.getElementById('log');
 
-function log(msg, isFound = false) {
-  const el = document.createElement('div');
-  el.textContent = msg;
-  if (isFound) el.classList.add('found');
-  logEl.appendChild(el);
-  logEl.scrollTop = logEl.scrollHeight;
-}
+      let workers = [];
+      let running = false;
+      let checked = 0;
+      let totalWorkers = 4;
+      let doneFlags = [];
 
-function saveProgress(workerId, currentKey) {
-  localStorage.setItem(`progress_worker_${workerId}`, currentKey);
-}
+      function updateFill(text, isFound = false) {
+        const el = document.createElement('div');
+        el.textContent = text;
+        if (isFound) el.classList.add('found');
+        logEl.appendChild(el);
+        logEl.scrollTop = logEl.scrollHeight;
+      }
 
-function getProgress(workerId) {
-  return localStorage.getItem(`progress_worker_${workerId}`) || null;
-}
-
-function reset() {
-  workers.forEach(w => w.terminate());
-  workers = [];
-  running = false;
-  keysChecked = 0;
-  counterEl.textContent = 'Keys checked: 0';
-  statusEl.textContent = 'Ready';
-  logEl.textContent = '';
-  progressBarsContainer.innerHTML = '';
-  toggleBtn.textContent = 'Start Search';
-  toggleBtn.classList.remove('pause');
-  for(let i = 0; i < numberOfWorkers; i++) {
-    localStorage.removeItem(`progress_worker_${i}`);
-  }
-  progressData = [];
-}
-
-function createProgressBars(count) {
-  progressBarsContainer.innerHTML = '';
-  progressData = Array(count).fill(0);
-  for(let i = 0; i < count; i++) {
-    const container = document.createElement('div');
-    container.classList.add('progress-bar');
-    const fill = document.createElement('div');
-    fill.classList.add('progress-bar-fill');
-    fill.id = `progressFill_${i}`;
-    container.appendChild(fill);
-    progressBarsContainer.appendChild(container);
-  }
-}
-
-function updateProgressBar(workerId, percent) {
-  const fill = document.getElementById(`progressFill_${workerId}`);
-  if (fill) fill.style.width = `${percent}%`;
-}
-
-function startWorkers() {
-  const startHexRaw = startHexInput.value.trim();
-  const endHexRaw = endHexInput.value.trim();
-  const prefix = prefixInput.value.trim();
-  const mode = modeSelect.value;
-  numberOfWorkers = Math.min(Math.max(parseInt(workerCountInput.value) || 1, 1), 16);
-
-  if (!startHexRaw || !endHexRaw || !prefix) {
-    alert('Fill all fields');
-    return;
-  }
-
-  // Подготовка диапазонов
-  const bigStart = BigInt('0x' + startHexRaw.padStart(64, '0'));
-  const bigEnd = BigInt('0x' + endHexRaw.padStart(64, '0'));
-  if (bigEnd < bigStart) {
-    alert('End key must be greater than start key');
-    return;
-  }
-  const range = bigEnd - bigStart + 1n;
-  const part = range / BigInt(numberOfWorkers);
-
-  keysChecked = 0;
-  logEl.textContent = '';
-  createProgressBars(numberOfWorkers);
-
-  for (let i = 0; i < numberOfWorkers; i++) {
-    const worker = new Worker('worker.js');
-    const partStart = bigStart + part * BigInt(i);
-    const partEnd = (i === numberOfWorkers - 1) ? bigEnd : (partStart + part - 1n);
-    const resumeFrom = getProgress(i);
-
-    worker.postMessage({
-      cmd: 'start',
-      start: partStart.toString(16).padStart(64, '0'),
-      end: partEnd.toString(16).padStart(64, '0'),
-      prefix,
-      mode,
-      resumeFrom,
-    });
-
-    worker.onmessage = (e) => {
-      const data = e.data;
-      if (data.type === 'progress') {
-        keysChecked++;
-        counterEl.textContent = `Keys checked: ${keysChecked}`;
-
-        if (data.found) {
-          log(`FOUND: ${data.privateKey} => ${data.address} | WIF: ${data.wif}`, true);
-        } else {
-          // Можно логировать статус воркера, но не перегружать лог
-          // log(`Worker ${i}: Checked ${data.checkedCount} keys`);
+      function createBars(n) {
+        barsEl.innerHTML = '';
+        doneFlags = Array(n).fill(false);
+        for (let i = 0; i < n; i++) {
+          const block = document.createElement('div');
+          block.className = 'worker-block';
+          block.innerHTML = `
+            <div class="worker-title">Worker ${i}</div>
+            <div class="progress-bar"><div id="fill_${i}" class="progress-fill"></div></div>
+          `;
+          barsEl.appendChild(block);
         }
-        saveProgress(i, data.currentKey);
-
-        // Обновим прогресс-бар воркера (условно % от части диапазона)
-        // Здесь для простоты просто инкремент по keysChecked на воркера
-        // Можно улучшить, если воркер будет отдавать процент
-        // Но пусть сейчас прогресс - грубая оценка
-        const progressPercent = ((BigInt('0x' + data.currentKey) - partStart) * 100n) / (partEnd - partStart + 1n);
-        updateProgressBar(i, Number(progressPercent));
       }
-      if (data.type === 'done') {
-        statusEl.textContent = `Worker ${i} finished or paused`;
-        saveProgress(i, data.currentKey);
+
+      function resetAll() {
+        workers.forEach(w => w.terminate());
+        workers = []; running = false; checked = 0;
+        counterEl.textContent = 'Проверено: 0';
+        statusEl.textContent = 'Готов';
+        barsEl.innerHTML = '';
+        logEl.innerHTML = '';
+        btnToggle.textContent = 'Начать';
       }
-    };
 
-    workers.push(worker);
-  }
+      function updateBar(id, percent) {
+        const fill = document.getElementById(`fill_${id}`);
+        if (fill) fill.style.width = percent + '%';
+      }
 
-  running = true;
-  toggleBtn.textContent = 'Pause Search';
-  toggleBtn.classList.add('pause');
-  statusEl.textContent = 'Searching...';
-}
+      function startSearch() {
+        if (running) return;
+        if (!/^[0-9A-Fa-f]{1,64}$/.test(startHex.value) || !/^[0-9A-Fa-f]{1,64}$/.test(endHex.value)) {
+          alert('HEX должен быть 1–64 символов 0–9, A–F'); return;
+        }
+        if (!prefix.value && !fullAddr.value) { alert('Укажи префикс или полный адрес'); return; }
+        totalWorkers = Math.min(Math.max(+wCount.value || 1, 1), 16);
+        resetAll(); createBars(totalWorkers);
 
-toggleBtn.addEventListener('click', () => {
-  if (!running) {
-    startWorkers();
-  } else {
-    workers.forEach(w => w.terminate());
-    workers = [];
-    running = false;
-    toggleBtn.textContent = 'Start Search';
-    toggleBtn.classList.remove('pause');
-    statusEl.textContent = 'Paused';
-  }
-});
+        const bStart = BigInt('0x' + startHex.value.padStart(64, '0'));
+        const bEnd = BigInt('0x' + endHex.value.padStart(64, '0'));
+        const range = bEnd - bStart + 1n;
+        const size = range / BigInt(totalWorkers);
 
-resetBtn.addEventListener('click', reset);
+        running = true; statusEl.textContent = 'Поиск...'; btnToggle.textContent = 'Пауза';
 
-downloadLogBtn.addEventListener('click', () => {
-  const blob = new Blob([logEl.textContent], { type: 'text/plain' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `bitcoin_key_finder_log_${Date.now()}.txt`;
-  a.click();
-  URL.revokeObjectURL(url);
-});
+        workers = [];
+        for (let i = 0; i < totalWorkers; i++) {
+          const worker = new Worker('worker.js');
+          const start = (bStart + size * BigInt(i)).toString();
+          const end = (i === totalWorkers - 1) ? bEnd.toString() : (BigInt(start) + size - 1n).toString();
+          worker.postMessage({ id: i, start, end, prefix: prefix.value, fullAddress: fullAddr.value });
+          worker.onmessage = e => {
+            const msg = e.data;
+            if (msg.type === 'progress') {
+              checked += msg.checkedCount;
+              counterEl.textContent = `Проверено: ${checked}`;
+              updateBar(msg.id, msg.progress);
+            } else if (msg.type === 'found') {
+              updateFill(`Worker ${msg.id}: найден ключ ${msg.key}, адрес ${msg.address}`, true);
+            } else if (msg.type === 'done') {
+              doneFlags[msg.id] = true;
+              updateFill(`Worker ${msg.id} завершил`, false);
+              if (doneFlags.every(f => f)) {
+                running = false;
+                statusEl.textContent = 'Готов';
+                btnToggle.textContent = 'Начать';
+              }
+            }
+          };
+          workers.push(worker);
+        }
+      }
 
-reset();
-</script>
+      btnToggle.addEventListener('click', () => running ? resetAll() : startSearch());
+      btnReset.addEventListener('click', resetAll);
+      btnDL.addEventListener('click', () => {
+        const blob = new Blob([logEl.textContent], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a'); a.href = url; a.download = 'log.txt'; a.click(); URL.revokeObjectURL(url);
+      });
+    });
+  </script>
 </body>
 </html>
