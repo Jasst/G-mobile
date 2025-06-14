@@ -17,6 +17,7 @@ let workers = [];
 let isRunning = false;
 let totalChecked = 0;
 let workerProgress = [];
+let progressUpdateThrottle = null;
 
 function createProgressBar(id) {
   const block = document.createElement('div');
@@ -37,12 +38,17 @@ function createProgressBar(id) {
 }
 
 function updateProgressBars() {
-  workers.forEach((_, i) => {
-    const fill = document.getElementById(`progressFill${i}`);
-    if (fill && workerProgress[i] !== undefined && workerProgress[i] !== null) {
-      const percent = Math.min(workerProgress[i], 100);
-      fill.style.width = `${percent}%`;
-    }
+  // throttle обновления прогресс-баров, чтобы не вызывать слишком часто
+  if (progressUpdateThrottle) return;
+  progressUpdateThrottle = requestAnimationFrame(() => {
+    workers.forEach((_, i) => {
+      const fill = document.getElementById(`progressFill${i}`);
+      if (fill && workerProgress[i] !== undefined && workerProgress[i] !== null) {
+        const percent = Math.min(workerProgress[i], 100);
+        fill.style.width = `${percent}%`;
+      }
+    });
+    progressUpdateThrottle = null;
   });
 }
 
@@ -51,7 +57,13 @@ function appendLog(text, isFound = false) {
   if (isFound) span.className = 'found';
   span.textContent = text + '\n';
   logEl.appendChild(span);
-  logEl.scrollTop = logEl.scrollHeight;
+  // Оптимизация скролла: сработает раз в 100 мс максимум
+  if (!appendLog.scrollTimeout) {
+    appendLog.scrollTimeout = setTimeout(() => {
+      logEl.scrollTop = logEl.scrollHeight;
+      appendLog.scrollTimeout = null;
+    }, 100);
+  }
 }
 
 function clearUI() {
@@ -80,7 +92,6 @@ function gatherParams() {
   let startHex = startHexInput.value.trim() || '0';
   let endHex = endHexInput.value.trim() || 'FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF';
 
-  // Проверка HEX формата
   const hexRegexp = /^[0-9a-fA-F]+$/;
   if (mode === 'range' && (!hexRegexp.test(startHex) || !hexRegexp.test(endHex))) {
     alert('Начальный и конечный HEX должны содержать только 0-9, A-F');
@@ -109,8 +120,12 @@ function createWorker(id, params) {
       case 'progress':
         workerProgress[data.workerIndex] = data.progress !== null ? data.progress : 0;
         totalChecked += data.checkedCount || 0;
-        counterEl.textContent = `Проверено: ${totalChecked.toLocaleString()}`;
-        updateProgressBars();
+        // Обновляем счетчик и прогресс с throttle
+        if (!updateProgressBars.lastUpdate || Date.now() - updateProgressBars.lastUpdate > 50) {
+          counterEl.textContent = `Проверено: ${totalChecked.toLocaleString()}`;
+          updateProgressBars();
+          updateProgressBars.lastUpdate = Date.now();
+        }
         break;
 
       case 'found':
@@ -165,6 +180,7 @@ function stopWorkers() {
   disableInputs(false);
   toggleBtn.textContent = 'Начать';
   statusEl.textContent = 'Остановлено';
+  totalChecked = 0;
 }
 
 toggleBtn.addEventListener('click', () => {
