@@ -1,160 +1,162 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8">
-  <title>Поиск адресов Bitcoin</title>
-  <style>
-    :root {
-      --bg: #121212;
-      --panel: #1e1e1e;
-      --text: #e0e0e0;
-      --accent: #ff8a00;
-      --accent2: #e52e71;
-      --green: #00e676;
-    }
-    body {
-      margin: 0;
-      padding: 20px;
-      background: var(--bg);
-      color: var(--text);
-      font-family: 'Segoe UI', sans-serif;
-    }
-
-    input, select, button {
-      background: var(--panel);
-      color: var(--text);
-      border: 1px solid #333;
-      padding: 10px;
-      border-radius: 5px;
-      margin: 6px 0;
-      width: 100%;
-      box-sizing: border-box;
-      font-size: 14px;
-    }
-
-    button {
-      cursor: pointer;
-      transition: background 0.2s ease, transform 0.1s ease;
-    }
-    button:hover {
-      background: #2a2a2a;
-    }
-    button:active {
-      transform: scale(0.98);
-    }
-
-    label {
-      display: block;
-      margin-top: 10px;
-      font-size: 14px;
-    }
-
-    #status {
-      margin-top: 20px;
-      font-weight: bold;
-      font-size: 16px;
-    }
-
-    #counter {
-      margin-top: 8px;
-      font-size: 14px;
-    }
-
-    #progressBars {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-      gap: 12px;
-      margin-top: 20px;
-    }
-
-    .worker-block {
-      background: var(--panel);
-      padding: 12px;
-      border-radius: 8px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.4);
-    }
-
-    .worker-title {
-      font-size: 0.9rem;
-      margin-bottom: 6px;
-      opacity: 0.8;
-    }
-
-    .progress-bar {
-      width: 100%;
-      height: 8px;
-      background: #333;
-      border-radius: 4px;
-      overflow: hidden;
-    }
-
-    .progress-fill {
-      height: 100%;
-      width: 0;
-      background: linear-gradient(90deg, var(--accent), var(--accent2));
-      border-radius: 4px;
-      transition: width 0.3s ease;
-      animation: pulse 2s infinite;
-    }
-
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.7; }
-    }
-
-    #log {
-      height: 250px;
-      overflow-y: auto;
-      background: var(--panel);
-      padding: 12px;
-      margin-top: 24px;
-      border-radius: 8px;
-      font-size: 0.9rem;
-      line-height: 1.4em;
-    }
-
-    #log .found {
-      color: var(--green);
-      font-weight: bold;
-      animation: highlight 1s ease;
-    }
-
-    @keyframes highlight {
-      0% { background: rgba(0,230,118,0.2); }
-      100% { background: transparent; }
-    }
-
-    .controls {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-      gap: 12px;
-    }
-
-    .buttons {
-      display: flex;
-      gap: 10px;
-      margin-top: 12px;
-      flex-wrap: wrap;
-    }
-  </style>
+<meta charset="UTF-8" />
+<title>Поиск адресов Bitcoin</title>
+<style>
+  :root {
+    --bg: #121212;
+    --panel: #1e1e1e;
+    --text: #e0e0e0;
+    --accent: #ff8a00;
+    --accent2: #e52e71;
+    --green: #00e676;
+  }
+  body {
+    margin: 0; padding: 20px;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  }
+  input, select, button {
+    background: var(--panel);
+    color: var(--text);
+    border: 1px solid #333;
+    padding: 10px;
+    border-radius: 5px;
+    margin: 6px 0;
+    width: 100%;
+    box-sizing: border-box;
+    font-size: 14px;
+  }
+  button {
+    cursor: pointer;
+    transition: background 0.2s ease, transform 0.1s ease;
+  }
+  button:hover {
+    background: #2a2a2a;
+  }
+  button:active {
+    transform: scale(0.98);
+  }
+  label {
+    display: block;
+    margin-top: 10px;
+    font-size: 14px;
+    cursor: pointer;
+    user-select: none;
+  }
+  #status {
+    margin-top: 20px;
+    font-weight: bold;
+    font-size: 16px;
+    min-height: 22px;
+  }
+  #counter {
+    margin-top: 8px;
+    font-size: 14px;
+    min-height: 18px;
+  }
+  #progressBars {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 12px;
+    margin-top: 20px;
+  }
+  .worker-block {
+    background: var(--panel);
+    padding: 12px;
+    border-radius: 8px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+  }
+  .worker-title {
+    font-size: 0.9rem;
+    margin-bottom: 6px;
+    opacity: 0.8;
+    user-select: none;
+  }
+  .progress-bar {
+    width: 100%;
+    height: 8px;
+    background: #333;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    width: 0;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    border-radius: 4px;
+    transition: width 0.3s ease;
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+  }
+  #log {
+    height: 250px;
+    overflow-y: auto;
+    background: var(--panel);
+    padding: 12px;
+    margin-top: 24px;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    line-height: 1.4em;
+    white-space: pre-wrap;
+    user-select: text;
+  }
+  #log .found {
+    color: var(--green);
+    font-weight: bold;
+    animation: highlight 1s ease;
+  }
+  @keyframes highlight {
+    0% { background: rgba(0,230,118,0.2); }
+    100% { background: transparent; }
+  }
+  .controls {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+  }
+  .buttons {
+    display: flex;
+    gap: 10px;
+    margin-top: 12px;
+    flex-wrap: wrap;
+  }
+  .controls > div[role="group"] label {
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 14px;
+    user-select: none;
+  }
+</style>
 </head>
 <body>
   <div class="controls">
-    <label>Начальный HEX:
-      <input id="startHex" placeholder="e.g. 1A2B..." />
-    </label>
-    <label>Конечный HEX:
-      <input id="endHex" placeholder="e.g. FFFF..." />
-    </label>
-    <label>Префикс адреса:
-      <input id="prefix" placeholder="e.g. 1A" />
-    </label>
-    <label>Полный адрес:
-      <input id="fullAddress" placeholder="e.g. 1A1zP..." />
-    </label>
-    <label>Воркеров:
-      <input id="workerCount" type="number" value="4" min="1" max="16" />
-    </label>
+    <div role="group" aria-label="Режим поиска">
+      <label><input type="radio" id="modeRange" name="mode" value="range" checked> Последовательный перебор по диапазону HEX</label>
+      <label><input type="radio" id="modeRandom" name="mode" value="random"> Рандомный поиск</label>
+    </div>
+
+    <label for="startHex">Начальный HEX:</label>
+    <input id="startHex" placeholder="например: 1A2B..." autocomplete="off" />
+
+    <label for="endHex">Конечный HEX:</label>
+    <input id="endHex" placeholder="например: FFFF..." autocomplete="off" />
+
+    <label for="prefix">Совпадение префикса (например: 1A, 1Boat):</label>
+    <input id="prefix" placeholder="введите префикс от 1 до 34 символов" maxlength="34" autocomplete="off" />
+
+    <label for="fullAddress">Полный адрес:</label>
+    <input id="fullAddress" placeholder="например: 1A1zP..." maxlength="34" autocomplete="off" />
+
+    <label for="workerCount">Количество воркеров:</label>
+    <input id="workerCount" type="number" value="4" min="1" max="16" />
   </div>
 
   <div class="buttons">
