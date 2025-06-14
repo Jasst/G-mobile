@@ -3,184 +3,171 @@
 <head>
   <meta charset="UTF-8">
   <title>Поиск адресов Bitcoin</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
-    /* ====== Базовая темная тема ====== */
+    :root {
+      --bg: #121212;
+      --panel: #1e1e1e;
+      --text: #e0e0e0;
+      --accent: #ff8a00;
+      --accent2: #e52e71;
+      --green: #00e676;
+    }
     body {
       margin: 0;
-      padding: 24px;
-      background-color: #0f0f0f;
-      color: #e5e5e5;
-      font-family: "JetBrains Mono", "Fira Code", Consolas, monospace;
-      font-size: 15px;
-      line-height: 1.6;
+      padding: 20px;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', sans-serif;
+    }
+
+    input, select, button {
+      background: var(--panel);
+      color: var(--text);
+      border: 1px solid #333;
+      padding: 10px;
+      border-radius: 5px;
+      margin: 6px 0;
+      width: 100%;
+      box-sizing: border-box;
+      font-size: 14px;
+    }
+
+    button {
+      cursor: pointer;
+      transition: background 0.2s ease, transform 0.1s ease;
+    }
+    button:hover {
+      background: #2a2a2a;
+    }
+    button:active {
+      transform: scale(0.98);
     }
 
     label {
       display: block;
-      margin-top: 18px;
-      color: #bdbdbd;
-      font-size: 0.95rem;
-    }
-
-    input, select, button {
-      background: #1a1a1a;
-      color: #e0e0e0;
-      border: 1px solid #2e2e2e;
-      padding: 10px 12px;
-      border-radius: 6px;
-      margin-top: 6px;
-      width: 100%;
-      transition: border 0.2s ease, box-shadow 0.2s ease;
-    }
-
-    input:focus, select:focus {
-      border-color: #ff8a00;
-      box-shadow: 0 0 0 1px #ff8a00;
-      outline: none;
-    }
-
-    button {
-      padding: 10px 18px;
-      background: linear-gradient(145deg, #1e1e1e, #151515);
-      border: 1px solid #2d2d2d;
-      color: #f0f0f0;
-      font-weight: 600;
-      border-radius: 6px;
-      transition: background 0.2s ease, transform 0.1s ease;
-      cursor: pointer;
-      margin-top: 20px;
-      margin-right: 10px;
-    }
-
-    button:hover {
-      background: #262626;
-    }
-
-    button:active {
-      transform: scale(0.96);
+      margin-top: 10px;
+      font-size: 14px;
     }
 
     #status {
-      margin-top: 24px;
-      font-size: 1.05rem;
+      margin-top: 20px;
       font-weight: bold;
-      color: #ffaa00;
+      font-size: 16px;
     }
 
     #counter {
-      margin-top: 6px;
-      font-size: 0.95rem;
-      color: #888;
+      margin-top: 8px;
+      font-size: 14px;
     }
 
-    /* ====== Прогресс-бар воркеров ====== */
     #progressBars {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-      gap: 16px;
-      margin-top: 28px;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 12px;
+      margin-top: 20px;
     }
 
     .worker-block {
-      background: #181818;
-      padding: 14px;
+      background: var(--panel);
+      padding: 12px;
       border-radius: 8px;
-      box-shadow: inset 0 0 0 1px #2c2c2c;
-      transition: transform 0.2s ease;
-    }
-
-    .worker-block:hover {
-      transform: translateY(-2px);
+      box-shadow: 0 2px 6px rgba(0,0,0,0.4);
     }
 
     .worker-title {
-      font-size: 0.85rem;
-      margin-bottom: 10px;
-      color: #aaa;
+      font-size: 0.9rem;
+      margin-bottom: 6px;
+      opacity: 0.8;
     }
 
     .progress-bar {
-      height: 10px;
-      background: #2b2b2b;
-      border-radius: 5px;
+      width: 100%;
+      height: 8px;
+      background: #333;
+      border-radius: 4px;
       overflow: hidden;
     }
 
     .progress-fill {
       height: 100%;
-      width: 0%;
-      background: linear-gradient(90deg, #ff8a00, #e52e71);
-      border-radius: 5px;
-      transition: width 0.25s ease;
+      width: 0;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      border-radius: 4px;
+      transition: width 0.3s ease;
       animation: pulse 2s infinite;
     }
 
     @keyframes pulse {
       0%, 100% { opacity: 1; }
-      50% { opacity: 0.6; }
+      50% { opacity: 0.7; }
     }
 
-    /* ====== Лог найденных ключей ====== */
     #log {
-      height: 280px;
+      height: 250px;
       overflow-y: auto;
-      background: #161616;
-      padding: 14px;
-      margin-top: 30px;
+      background: var(--panel);
+      padding: 12px;
+      margin-top: 24px;
       border-radius: 8px;
       font-size: 0.9rem;
-      border: 1px solid #2a2a2a;
-      white-space: pre-wrap;
-      line-height: 1.4;
+      line-height: 1.4em;
     }
 
     #log .found {
-      color: #00e676;
+      color: var(--green);
       font-weight: bold;
-      animation: highlight 1.2s ease-in-out;
+      animation: highlight 1s ease;
     }
 
     @keyframes highlight {
-      0%   { background-color: rgba(0, 230, 118, 0.2); }
-      100% { background-color: transparent; }
+      0% { background: rgba(0,230,118,0.2); }
+      100% { background: transparent; }
     }
 
-    /* ====== Адаптив ====== */
-    @media (max-width: 600px) {
-      input, button {
-        font-size: 0.9rem;
-        padding: 8px 10px;
-      }
+    .controls {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+    }
 
-      #progressBars {
-        grid-template-columns: 1fr;
-      }
-
-      button {
-        width: 100%;
-        margin-bottom: 10px;
-      }
+    .buttons {
+      display: flex;
+      gap: 10px;
+      margin-top: 12px;
+      flex-wrap: wrap;
     }
   </style>
 </head>
 <body>
-  <div>
-    <label>Начальный HEX: <input id="startHex" placeholder="e.g. 1A2B..." /></label>
-    <label>Конечный HEX: <input id="endHex" placeholder="e.g. FF.." /></label>
-    <label>Префикс адреса: <input id="prefix" placeholder="e.g. 1A" /></label>
-    <label>Полный адрес: <input id="fullAddress" placeholder="e.g. 1A1zP..." /></label>
-    <label>Воркеров: <input id="workerCount" type="number" value="4" min="1" max="16"/></label>
+  <div class="controls">
+    <label>Начальный HEX:
+      <input id="startHex" placeholder="e.g. 1A2B..." />
+    </label>
+    <label>Конечный HEX:
+      <input id="endHex" placeholder="e.g. FFFF..." />
+    </label>
+    <label>Префикс адреса:
+      <input id="prefix" placeholder="e.g. 1A" />
+    </label>
+    <label>Полный адрес:
+      <input id="fullAddress" placeholder="e.g. 1A1zP..." />
+    </label>
+    <label>Воркеров:
+      <input id="workerCount" type="number" value="4" min="1" max="16" />
+    </label>
+  </div>
+
+  <div class="buttons">
     <button id="toggleBtn">Начать</button>
     <button id="resetBtn">Сброс</button>
     <button id="downloadLogBtn">Скачать лог</button>
   </div>
+
   <div id="status">Готов</div>
   <div id="counter">Проверено: 0</div>
   <div id="progressBars"></div>
   <div id="log"></div>
 
-  <!-- Скрипты подключаются отдельно -->
   <script src="main.js"></script>
 </body>
 </html>
