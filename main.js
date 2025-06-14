@@ -3,6 +3,8 @@ const endHexInput = document.getElementById('endHex');
 const prefixInput = document.getElementById('prefix');
 const fullAddressInput = document.getElementById('fullAddress');
 const workerCountInput = document.getElementById('workerCount');
+const modeRangeRadio = document.getElementById('modeRange');
+const modeRandomRadio = document.getElementById('modeRandom');
 const toggleBtn = document.getElementById('toggleBtn');
 const resetBtn = document.getElementById('resetBtn');
 const downloadLogBtn = document.getElementById('downloadLogBtn');
@@ -10,166 +12,146 @@ const statusEl = document.getElementById('status');
 const counterEl = document.getElementById('counter');
 const progressBarsEl = document.getElementById('progressBars');
 const logEl = document.getElementById('log');
-const modeRangeRadio = document.getElementById('modeRange');
-const modeRandomRadio = document.getElementById('modeRandom');
 
 let workers = [];
-let isRunning = false;
-let totalChecked = 0;
 let workerProgress = [];
-let progressUpdateThrottle = null;
+let totalChecked = 0;
+let foundCount = 0;
+let doneWorkers = 0;
+let isRunning = false;
+let startTime = null;
+let resumeHex = null; // для продолжения
+let appendScrollTimeout = null;
 
-function createProgressBar(id) {
-  const block = document.createElement('div');
-  block.className = 'worker-block';
-  const title = document.createElement('div');
-  title.className = 'worker-title';
-  title.textContent = `Воркер #${id + 1}`;
-  const progressBar = document.createElement('div');
-  progressBar.className = 'progress-bar';
-  const progressFill = document.createElement('div');
-  progressFill.className = 'progress-fill';
-  progressFill.style.width = '0%';
-  progressFill.id = `progressFill${id}`;
-  progressBar.appendChild(progressFill);
-  block.appendChild(title);
-  block.appendChild(progressBar);
-  progressBarsEl.appendChild(block);
-}
-
-function updateProgressBars() {
-  // throttle обновления прогресс-баров, чтобы не вызывать слишком часто
-  if (progressUpdateThrottle) return;
-  progressUpdateThrottle = requestAnimationFrame(() => {
-    workers.forEach((_, i) => {
-      const fill = document.getElementById(`progressFill${i}`);
-      if (fill && workerProgress[i] !== undefined && workerProgress[i] !== null) {
-        const percent = Math.min(workerProgress[i], 100);
-        fill.style.width = `${percent}%`;
-      }
-    });
-    progressUpdateThrottle = null;
+// Переформатирование HEX ввода
+[startHexInput, endHexInput].forEach(inp => {
+  inp.addEventListener('input', () => {
+    inp.value = inp.value.replace(/\s+/g, '').toLowerCase();
   });
-}
+});
 
-function appendLog(text, isFound = false) {
+// UI функции
+function appendLog(text, isFound=false) {
   const span = document.createElement('span');
   if (isFound) span.className = 'found';
   span.textContent = text + '\n';
   logEl.appendChild(span);
-  // Оптимизация скролла: сработает раз в 100 мс максимум
-  if (!appendLog.scrollTimeout) {
-    appendLog.scrollTimeout = setTimeout(() => {
-      logEl.scrollTop = logEl.scrollHeight;
-      appendLog.scrollTimeout = null;
-    }, 100);
+  if (!appendScrollTimeout) {
+    appendScrollTimeout = setTimeout(() => { logEl.scrollTop = logEl.scrollHeight; appendScrollTimeout = null; }, 100);
   }
 }
-
 function clearUI() {
   logEl.textContent = '';
   counterEl.textContent = 'Проверено: 0';
   statusEl.textContent = 'Готов';
   progressBarsEl.textContent = '';
-  totalChecked = 0;
-  workerProgress = [];
+  totalChecked = 0; workerProgress = []; foundCount = 0; doneWorkers = 0;
+}
+function disableInputs(v) {
+  [startHexInput, endHexInput, prefixInput, fullAddressInput, workerCountInput, modeRangeRadio, modeRandomRadio].forEach(el => el.disabled = v);
+}
+function createProgressBar(id) {
+  const block = document.createElement('div');
+  block.className = 'worker-block';
+  const title = document.createElement('div');
+  title.className = 'worker-title';
+  title.textContent = `Воркер #${id+1}`;
+  const bar = document.createElement('div');
+  bar.className = 'progress-bar';
+  const fill = document.createElement('div');
+  fill.className = 'progress-fill';
+  fill.id = `progressFill${id}`;
+  bar.appendChild(fill);
+  block.appendChild(title); block.appendChild(bar);
+  progressBarsEl.appendChild(block);
+}
+function updateProgressBars() {
+  requestAnimationFrame(() => {
+    workers.forEach((_, i) => {
+      const fill = document.getElementById(`progressFill${i}`);
+      const p = workerProgress[i] || 0;
+      if (fill) fill.style.width = `${Math.min(p,100)}%`;
+    });
+  });
 }
 
-function disableInputs(disabled) {
-  startHexInput.disabled = disabled;
-  endHexInput.disabled = disabled;
-  prefixInput.disabled = disabled;
-  fullAddressInput.disabled = disabled;
-  workerCountInput.disabled = disabled;
-  modeRangeRadio.disabled = disabled;
-  modeRandomRadio.disabled = disabled;
+// Сохранение найденных ключей в IndexedDB
+const dbPromise = indexedDB.open('btc-finder', 1);
+dbPromise.onupgradeneeded = evt => {
+  evt.target.result.createObjectStore('found', { keyPath: 'address' });
+};
+async function saveFound(address, privKey) {
+  const db = (await dbPromise).result;
+  const tx = db.transaction('found','readwrite');
+  tx.objectStore('found').put({ address, privKey, time: Date.now() });
+}
+async function loadSaved() {
+  const store = (await dbPromise).result.transaction('found','readonly').objectStore('found');
+  const all = await new Promise(r => { const a = []; store.openCursor().onsuccess = e => { const c=e.target.result; if(c){a.push(c.value); c.continue();} } ; store.transaction.oncomplete = ()=>r(a); });
+  all.forEach(v => appendLog(`Сохранён: ${v.address} | priv: ${v.privKey}`, true));
 }
 
+// Сбор параметров
 function gatherParams() {
   const mode = modeRangeRadio.checked ? 'range' : 'random';
-  const workersNum = Math.min(Math.max(parseInt(workerCountInput.value) || 4, 1), 16);
-
-  let startHex = startHexInput.value.trim() || '0';
-  let endHex = endHexInput.value.trim() || 'FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF';
-
-  const hexRegexp = /^[0-9a-fA-F]+$/;
-  if (mode === 'range' && (!hexRegexp.test(startHex) || !hexRegexp.test(endHex))) {
-    alert('Начальный и конечный HEX должны содержать только 0-9, A-F');
-    return null;
-  }
-  if (mode === 'range' && BigInt('0x' + endHex) < BigInt('0x' + startHex)) {
-    alert('Конечный HEX должен быть больше или равен начальному');
-    return null;
-  }
-
-  return {
-    mode,
-    workersNum,
-    start: startHex.toLowerCase(),
-    end: endHex.toLowerCase(),
-    prefix: prefixInput.value.trim(),
-    fullAddress: fullAddressInput.value.trim()
-  };
+  const workersNum = Math.min(Math.max(+workerCountInput.value||4,1),16);
+  let start = startHexInput.value.trim() || '0';
+  let end = endHexInput.value.trim() || 'f'.repeat(64);
+  const hexRE = /^[0-9a-f]+$/;
+  if (mode==='range' && (!hexRE.test(start) || !hexRE.test(end))) { alert('HEX ввод некорректен'); return; }
+  if (mode==='range' && BigInt('0x'+end) < BigInt('0x'+start)) { alert('end < start'); return; }
+  if (resumeHex) start = resumeHex;
+  return { mode, workersNum, start, end, prefix: prefixInput.value.trim(), fullAddress: fullAddressInput.value.trim() };
 }
 
+// Работа с воркерами
 function createWorker(id, params) {
   const w = new Worker('worker.js');
-  w.onmessage = (e) => {
-    const data = e.data;
-    switch (data.type) {
+  w.onmessage = e => {
+    const d = e.data;
+    switch (d.type) {
       case 'progress':
-        workerProgress[data.workerIndex] = data.progress !== null ? data.progress : 0;
-        totalChecked += data.checkedCount || 0;
-        // Обновляем счетчик и прогресс с throttle
-        if (!updateProgressBars.lastUpdate || Date.now() - updateProgressBars.lastUpdate > 50) {
-          counterEl.textContent = `Проверено: ${totalChecked.toLocaleString()}`;
-          updateProgressBars();
-          updateProgressBars.lastUpdate = Date.now();
-        }
+        workerProgress[d.workerIndex] = d.progress||0;
+        totalChecked += d.checkedCount||0;
+        counterEl.textContent = `Проверено: ${totalChecked.toLocaleString()}`;
         break;
-
       case 'found':
-        appendLog(`Найден адрес: ${data.address} | priv: ${data.privKey}`, true);
+        foundCount++;
+        appendLog(`Найден адрес #${foundCount}: ${d.address} | priv: ${d.privKey}`, true);
+        saveFound(d.address, d.privKey);
         break;
-
-      case 'error':
-        appendLog(`Ошибка в воркере #${id + 1}: ${data.error}`);
-        break;
-
       case 'done':
-        appendLog(`Воркер #${data.workerIndex + 1} завершил работу.`);
+        doneWorkers++;
+        appendLog(`Воркер #${d.workerIndex+1} завершился.`);
+        resumeHex = d.nextStartHex || null;
+        if (doneWorkers === workers.length) stopWorkers();
+        break;
+      case 'error':
+        appendLog(`Ошибка #${d.workerIndex+1}: ${d.error}`);
         break;
     }
+    updateProgressBars();
   };
-
-  w.onerror = (err) => {
-    appendLog(`Ошибка в воркере #${id + 1}: ${err.message}`);
-  };
-
-  w.postMessage({ ...params, id: id, workerIndex: id });
-
+  w.onerror = e => appendLog(`Ошибка #${id+1}: ${e.message}`);
+  w.postMessage({ ...params, id, workerIndex: id });
   return w;
 }
 
-async function startWorkers() {
+function startWorkers() {
   clearUI();
-
+  loadSaved();
   const params = gatherParams();
   if (!params) return;
-
   disableInputs(true);
   toggleBtn.textContent = 'Стоп';
   statusEl.textContent = 'Поиск...';
-
-  workers = [];
-  workerProgress = new Array(params.workersNum).fill(0);
-  totalChecked = 0;
-
-  for (let i = 0; i < params.workersNum; i++) {
+  workers = []; workerProgress = Array(params.workersNum).fill(0);
+  totalChecked = foundCount = doneWorkers = 0;
+  startTime = Date.now();
+  for(let i=0;i<params.workersNum;i++){
     createProgressBar(i);
-    workers[i] = createWorker(i, params);
+    workers.push(createWorker(i, params));
   }
-
   isRunning = true;
 }
 
@@ -178,30 +160,23 @@ function stopWorkers() {
   workers = [];
   isRunning = false;
   disableInputs(false);
-  toggleBtn.textContent = 'Начать';
-  statusEl.textContent = 'Остановлено';
-  totalChecked = 0;
+  toggleBtn.textContent = resumeHex?'Продолжить':'Начать';
+  const elapsed = ((Date.now()-startTime)/1000).toFixed(1);
+  statusEl.textContent = resumeHex?`Остановлено на ${resumeHex}`:`Остановлено: ${elapsed} сек`;
 }
 
 toggleBtn.addEventListener('click', () => {
-  if (!isRunning) {
-    startWorkers();
-  } else {
-    stopWorkers();
-  }
+  isRunning ? stopWorkers() : startWorkers();
 });
-
 resetBtn.addEventListener('click', () => {
   if (isRunning) stopWorkers();
+  resumeHex = null;
   clearUI();
 });
-
 downloadLogBtn.addEventListener('click', () => {
   const blob = new Blob([logEl.textContent], { type: 'text/plain;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url;
+  a.href = URL.createObjectURL(blob);
   a.download = 'log.txt';
   a.click();
-  URL.revokeObjectURL(url);
 });
