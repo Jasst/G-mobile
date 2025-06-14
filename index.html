@@ -3,170 +3,165 @@
 <head>
   <meta charset="UTF-8">
   <title>Поиск адресов Bitcoin</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
-    /* Темная тема */
-    /* Общий стиль */
-body {
-  margin: 0;
-  padding: 24px;
-  background-color: #0f0f0f;
-  color: #e5e5e5;
-  font-family: "JetBrains Mono", "Fira Code", Consolas, monospace;
-  line-height: 1.6;
-  font-size: 15px;
-  letter-spacing: 0.2px;
-}
+    /* ====== Базовая темная тема ====== */
+    body {
+      margin: 0;
+      padding: 24px;
+      background-color: #0f0f0f;
+      color: #e5e5e5;
+      font-family: "JetBrains Mono", "Fira Code", Consolas, monospace;
+      font-size: 15px;
+      line-height: 1.6;
+    }
 
-/* Формы */
-input, select, button {
-  background: #1a1a1a;
-  color: #ddd;
-  border: 1px solid #2c2c2c;
-  padding: 10px 12px;
-  border-radius: 6px;
-  margin-top: 6px;
-  width: 100%;
-  transition: border 0.2s ease, box-shadow 0.2s ease;
-}
+    label {
+      display: block;
+      margin-top: 18px;
+      color: #bdbdbd;
+      font-size: 0.95rem;
+    }
 
-input:focus, select:focus {
-  border-color: #ff8a00;
-  box-shadow: 0 0 0 1px #ff8a00;
-  outline: none;
-}
+    input, select, button {
+      background: #1a1a1a;
+      color: #e0e0e0;
+      border: 1px solid #2e2e2e;
+      padding: 10px 12px;
+      border-radius: 6px;
+      margin-top: 6px;
+      width: 100%;
+      transition: border 0.2s ease, box-shadow 0.2s ease;
+    }
 
-label {
-  display: block;
-  margin-top: 16px;
-  font-weight: 500;
-  font-size: 0.95rem;
-  color: #bbbbbb;
-}
+    input:focus, select:focus {
+      border-color: #ff8a00;
+      box-shadow: 0 0 0 1px #ff8a00;
+      outline: none;
+    }
 
-/* Кнопки */
-button {
-  padding: 10px 18px;
-  margin-top: 20px;
-  margin-right: 10px;
-  background: linear-gradient(145deg, #1e1e1e, #151515);
-  border: 1px solid #2d2d2d;
-  color: #f0f0f0;
-  font-weight: 600;
-  border-radius: 6px;
-  transition: background 0.2s ease, transform 0.1s ease;
-  cursor: pointer;
-}
+    button {
+      padding: 10px 18px;
+      background: linear-gradient(145deg, #1e1e1e, #151515);
+      border: 1px solid #2d2d2d;
+      color: #f0f0f0;
+      font-weight: 600;
+      border-radius: 6px;
+      transition: background 0.2s ease, transform 0.1s ease;
+      cursor: pointer;
+      margin-top: 20px;
+      margin-right: 10px;
+    }
 
-button:hover {
-  background: #262626;
-}
+    button:hover {
+      background: #262626;
+    }
 
-button:active {
-  transform: scale(0.96);
-}
+    button:active {
+      transform: scale(0.96);
+    }
 
-/* Статусы */
-#status {
-  margin-top: 24px;
-  font-size: 1.05rem;
-  font-weight: bold;
-  color: #ffaa00;
-}
+    #status {
+      margin-top: 24px;
+      font-size: 1.05rem;
+      font-weight: bold;
+      color: #ffaa00;
+    }
 
-#counter {
-  margin-top: 6px;
-  font-size: 0.95rem;
-  color: #888;
-}
+    #counter {
+      margin-top: 6px;
+      font-size: 0.95rem;
+      color: #888;
+    }
 
-/* Прогресс по воркерам */
-#progressBars {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-  gap: 16px;
-  margin-top: 28px;
-}
+    /* ====== Прогресс-бар воркеров ====== */
+    #progressBars {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+      gap: 16px;
+      margin-top: 28px;
+    }
 
-.worker-block {
-  background: #181818;
-  padding: 14px;
-  border-radius: 8px;
-  box-shadow: inset 0 0 0 1px #2c2c2c;
-  transition: transform 0.2s ease;
-}
+    .worker-block {
+      background: #181818;
+      padding: 14px;
+      border-radius: 8px;
+      box-shadow: inset 0 0 0 1px #2c2c2c;
+      transition: transform 0.2s ease;
+    }
 
-.worker-block:hover {
-  transform: translateY(-2px);
-}
+    .worker-block:hover {
+      transform: translateY(-2px);
+    }
 
-.worker-title {
-  font-size: 0.85rem;
-  margin-bottom: 10px;
-  color: #aaa;
-}
+    .worker-title {
+      font-size: 0.85rem;
+      margin-bottom: 10px;
+      color: #aaa;
+    }
 
-.progress-bar {
-  height: 10px;
-  background: #2b2b2b;
-  border-radius: 5px;
-  overflow: hidden;
-}
+    .progress-bar {
+      height: 10px;
+      background: #2b2b2b;
+      border-radius: 5px;
+      overflow: hidden;
+    }
 
-.progress-fill {
-  height: 100%;
-  width: 0%;
-  background: linear-gradient(90deg, #ff8a00, #e52e71);
-  border-radius: 5px;
-  transition: width 0.25s ease;
-  animation: pulse 2s infinite;
-}
+    .progress-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #ff8a00, #e52e71);
+      border-radius: 5px;
+      transition: width 0.25s ease;
+      animation: pulse 2s infinite;
+    }
 
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.6; }
-}
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.6; }
+    }
 
-/* Лог */
-#log {
-  height: 280px;
-  overflow-y: auto;
-  background: #161616;
-  padding: 14px;
-  margin-top: 30px;
-  border-radius: 8px;
-  font-size: 0.9rem;
-  border: 1px solid #2a2a2a;
-  white-space: pre-wrap;
-  line-height: 1.4;
-}
+    /* ====== Лог найденных ключей ====== */
+    #log {
+      height: 280px;
+      overflow-y: auto;
+      background: #161616;
+      padding: 14px;
+      margin-top: 30px;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      border: 1px solid #2a2a2a;
+      white-space: pre-wrap;
+      line-height: 1.4;
+    }
 
-#log .found {
-  color: #00e676;
-  font-weight: bold;
-  animation: highlight 1.2s ease-in-out;
-}
+    #log .found {
+      color: #00e676;
+      font-weight: bold;
+      animation: highlight 1.2s ease-in-out;
+    }
 
-@keyframes highlight {
-  0%   { background-color: rgba(0, 230, 118, 0.2); }
-  100% { background-color: transparent; }
-}
+    @keyframes highlight {
+      0%   { background-color: rgba(0, 230, 118, 0.2); }
+      100% { background-color: transparent; }
+    }
 
-/* Адаптив */
-@media (max-width: 600px) {
-  input, button {
-    font-size: 0.9rem;
-    padding: 8px 10px;
-  }
+    /* ====== Адаптив ====== */
+    @media (max-width: 600px) {
+      input, button {
+        font-size: 0.9rem;
+        padding: 8px 10px;
+      }
 
-  #progressBars {
-    grid-template-columns: 1fr;
-  }
+      #progressBars {
+        grid-template-columns: 1fr;
+      }
 
-  button {
-    width: 100%;
-    margin-bottom: 10px;
-  }
-}
+      button {
+        width: 100%;
+        margin-bottom: 10px;
+      }
+    }
   </style>
 </head>
 <body>
@@ -185,116 +180,7 @@ button:active {
   <div id="progressBars"></div>
   <div id="log"></div>
 
-  <script>
-    document.addEventListener('DOMContentLoaded', () => {
-      const startHex = document.getElementById('startHex');
-      const endHex = document.getElementById('endHex');
-      const prefix = document.getElementById('prefix');
-      const fullAddr = document.getElementById('fullAddress');
-      const wCount = document.getElementById('workerCount');
-      const btnToggle = document.getElementById('toggleBtn');
-      const btnReset = document.getElementById('resetBtn');
-      const btnDL = document.getElementById('downloadLogBtn');
-      const statusEl = document.getElementById('status');
-      const counterEl = document.getElementById('counter');
-      const barsEl = document.getElementById('progressBars');
-      const logEl = document.getElementById('log');
-
-      let workers = [];
-      let running = false;
-      let checked = 0;
-      let totalWorkers = 4;
-      let doneFlags = [];
-
-      function updateFill(text, isFound = false) {
-        const el = document.createElement('div');
-        el.textContent = text;
-        if (isFound) el.classList.add('found');
-        logEl.appendChild(el);
-        logEl.scrollTop = logEl.scrollHeight;
-      }
-
-      function createBars(n) {
-        barsEl.innerHTML = '';
-        doneFlags = Array(n).fill(false);
-        for (let i = 0; i < n; i++) {
-          const block = document.createElement('div');
-          block.className = 'worker-block';
-          block.innerHTML = `
-            <div class="worker-title">Worker ${i}</div>
-            <div class="progress-bar"><div id="fill_${i}" class="progress-fill"></div></div>
-          `;
-          barsEl.appendChild(block);
-        }
-      }
-
-      function resetAll() {
-        workers.forEach(w => w.terminate());
-        workers = []; running = false; checked = 0;
-        counterEl.textContent = 'Проверено: 0';
-        statusEl.textContent = 'Готов';
-        barsEl.innerHTML = '';
-        logEl.innerHTML = '';
-        btnToggle.textContent = 'Начать';
-      }
-
-      function updateBar(id, percent) {
-        const fill = document.getElementById(`fill_${id}`);
-        if (fill) fill.style.width = percent + '%';
-      }
-
-      function startSearch() {
-        if (running) return;
-        if (!/^[0-9A-Fa-f]{1,64}$/.test(startHex.value) || !/^[0-9A-Fa-f]{1,64}$/.test(endHex.value)) {
-          alert('HEX должен быть 1–64 символов 0–9, A–F'); return;
-        }
-        if (!prefix.value && !fullAddr.value) { alert('Укажи префикс или полный адрес'); return; }
-        totalWorkers = Math.min(Math.max(+wCount.value || 1, 1), 16);
-        resetAll(); createBars(totalWorkers);
-
-        const bStart = BigInt('0x' + startHex.value.padStart(64, '0'));
-        const bEnd = BigInt('0x' + endHex.value.padStart(64, '0'));
-        const range = bEnd - bStart + 1n;
-        const size = range / BigInt(totalWorkers);
-
-        running = true; statusEl.textContent = 'Поиск...'; btnToggle.textContent = 'Пауза';
-
-        workers = [];
-        for (let i = 0; i < totalWorkers; i++) {
-          const worker = new Worker('worker.js');
-          const start = (bStart + size * BigInt(i)).toString();
-          const end = (i === totalWorkers - 1) ? bEnd.toString() : (BigInt(start) + size - 1n).toString();
-          worker.postMessage({ id: i, start, end, prefix: prefix.value, fullAddress: fullAddr.value });
-          worker.onmessage = e => {
-            const msg = e.data;
-            if (msg.type === 'progress') {
-              checked += msg.checkedCount;
-              counterEl.textContent = `Проверено: ${checked}`;
-              updateBar(msg.id, msg.progress);
-            } else if (msg.type === 'found') {
-              updateFill(`Worker ${msg.id}: найден ключ ${msg.key}, адрес ${msg.address}`, true);
-            } else if (msg.type === 'done') {
-              doneFlags[msg.id] = true;
-              updateFill(`Worker ${msg.id} завершил`, false);
-              if (doneFlags.every(f => f)) {
-                running = false;
-                statusEl.textContent = 'Готов';
-                btnToggle.textContent = 'Начать';
-              }
-            }
-          };
-          workers.push(worker);
-        }
-      }
-
-      btnToggle.addEventListener('click', () => running ? resetAll() : startSearch());
-      btnReset.addEventListener('click', resetAll);
-      btnDL.addEventListener('click', () => {
-        const blob = new Blob([logEl.textContent], { type: 'text/plain' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a'); a.href = url; a.download = 'log.txt'; a.click(); URL.revokeObjectURL(url);
-      });
-    });
-  </script>
+  <!-- Скрипты подключаются отдельно -->
+  <script src="main.js"></script>
 </body>
 </html>
