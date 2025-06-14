@@ -3,232 +3,238 @@
 <head>
   <meta charset="UTF-8">
   <title>Поиск адресов Bitcoin</title>
-<style>
-  :root {
-    --bg: #121212;
-    --panel: #1e1e1e;
-    --text: #e0e0e0;
-    --accent: #ff8a00;
-    --accent2: #e52e71;
-    --green: #00e676;
-  }
-
-  body {
-    margin: 0;
-    padding: 20px;
-    background: var(--bg);
-    color: var(--text);
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    display: flex;
-    justify-content: center;
-  }
-
-  main {
-    width: 100%;
-    max-width: 720px;
-  }
-
-  .controls {
-    display: flex;
-    flex-direction: column;
-    gap: 24px;
-    margin-bottom: 18px;
-  }
-
-  .input-group {
-    display: flex;
-    gap: 16px;
-  }
-
-  .input-group > div {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-  }
-
-  label {
-    margin-bottom: 6px;
-    font-size: 15px;
-    cursor: pointer;
-    user-select: none;
-    color: var(--text);
-  }
-
-  input, select, button {
-    background: var(--panel);
-    color: var(--text);
-    border: 1px solid #333;
-    padding: 12px 14px;
-    border-radius: 6px;
-    width: 100%;
-    box-sizing: border-box;
-    font-size: 16px;
-    transition: border-color 0.3s ease;
-  }
-
-  input:focus, select:focus {
-    border-color: var(--accent);
-    outline: none;
-    box-shadow: 0 0 6px var(--accent);
-  }
-
-  button {
-    cursor: pointer;
-    font-weight: 600;
-    padding: 14px 20px;
-    border: none;
-    background: linear-gradient(90deg, var(--accent), var(--accent2));
-    color: #121212;
-    border-radius: 8px;
-    transition: background 0.25s ease, transform 0.12s ease;
-  }
-
-  button:hover {
-    background: linear-gradient(90deg, var(--accent2), var(--accent));
-    transform: scale(1.03);
-  }
-
-  button:active {
-    transform: scale(0.98);
-  }
-
-  /* Новая секция управления (воркеры + режим) */
-  .worker-mode-group {
-    display: flex;
-    align-items: flex-end;
-    gap: 24px;
-    flex-wrap: wrap;
-  }
-
-  .worker-count {
-    flex: 1 1 120px;
-    display: flex;
-    flex-direction: column;
-  }
-
-  .mode-group {
-    display: flex;
-    gap: 16px;
-    user-select: none;
-    font-size: 15px;
-  }
-
-  .mode-group label {
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-
-  .buttons {
-    display: flex;
-    gap: 14px;
-    flex-wrap: wrap;
-    margin-top: 12px;
-    justify-content: center;
-  }
-
-  #status {
-    margin-top: 12px;
-    font-weight: 700;
-    font-size: 18px;
-    min-height: 26px;
-    text-align: center;
-    color: var(--accent);
-    user-select: none;
-  }
-
-  #counter {
-    margin-top: 8px;
-    font-size: 16px;
-    min-height: 20px;
-    text-align: center;
-    color: var(--text);
-    user-select: none;
-  }
-
-  #progressBars {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-    gap: 16px;
-    margin-top: 24px;
-  }
-
-  .worker-block {
-    background: var(--panel);
-    padding: 16px;
-    border-radius: 10px;
-    box-shadow: 0 3px 8px rgba(0,0,0,0.5);
-  }
-
-  .worker-title {
-    font-size: 1rem;
-    margin-bottom: 8px;
-    opacity: 0.9;
-    user-select: none;
-    font-weight: 600;
-    color: var(--accent2);
-  }
-
-  .progress-bar {
-    width: 100%;
-    height: 12px;
-    background: #333;
-    border-radius: 6px;
-    overflow: hidden;
-  }
-
-  .progress-fill {
-    height: 100%;
-    width: 0;
-    background: linear-gradient(90deg, var(--accent), var(--accent2));
-    border-radius: 6px;
-    transition: width 0.4s ease;
-  }
-
-  #log {
-    height: 300px;
-    overflow-y: auto;
-    background: var(--panel);
-    padding: 16px;
-    margin-top: 28px;
-    border-radius: 10px;
-    font-size: 1rem;
-    line-height: 1.5em;
-    white-space: pre-wrap;
-    user-select: text;
-    color: var(--text);
-    box-shadow: inset 0 0 8px rgba(0,0,0,0.8);
-  }
-
-  #log .found {
-    color: var(--green);
-    font-weight: 700;
-    animation: highlight 1.2s ease forwards;
-  }
-
-  @keyframes highlight {
-    0% { background: rgba(0,230,118,0.25); }
-    100% { background: transparent; }
-  }
-
-  /* Адаптив */
-  @media (max-width: 600px) {
-    .input-group {
-      flex-direction: column;
+  <style>
+    :root {
+      --bg: #121212;
+      --panel: #1e1e1e;
+      --text: #e0e0e0;
+      --accent: #ff8a00;
+      --accent2: #e52e71;
+      --green: #00e676;
     }
-    .worker-mode-group {
-      flex-direction: column;
-      gap: 16px;
-    }
-    .mode-group {
-      justify-content: flex-start;
-    }
-    .buttons {
+
+    body {
+      margin: 0;
+      padding: 20px;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      display: flex;
       justify-content: center;
     }
-  }
-</style>
+
+    main {
+      width: 100%;
+      max-width: 720px;
+    }
+
+    .controls {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+      margin-bottom: 18px;
+    }
+
+    .input-group {
+      display: flex;
+      gap: 16px;
+    }
+
+    .input-group > div {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    label {
+      margin-bottom: 6px;
+      font-size: 15px;
+      cursor: pointer;
+      user-select: none;
+      color: var(--text);
+    }
+
+    input, select, button {
+      background: var(--panel);
+      color: var(--text);
+      border: 1px solid #333;
+      padding: 12px 14px;
+      border-radius: 6px;
+      width: 100%;
+      box-sizing: border-box;
+      font-size: 16px;
+      transition: border-color 0.3s ease;
+    }
+
+    input:focus, select:focus {
+      border-color: var(--accent);
+      outline: none;
+      box-shadow: 0 0 6px var(--accent);
+    }
+
+    button {
+      cursor: pointer;
+      font-weight: 600;
+      padding: 14px 20px;
+      border: none;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      color: #121212;
+      border-radius: 8px;
+      transition: background 0.25s ease, transform 0.12s ease;
+    }
+
+    button:hover {
+      background: linear-gradient(90deg, var(--accent2), var(--accent));
+      transform: scale(1.03);
+    }
+
+    button:active {
+      transform: scale(0.98);
+    }
+
+    .worker-mode-group {
+      display: flex;
+      align-items: flex-end;
+      gap: 24px;
+      flex-wrap: wrap;
+    }
+
+    .worker-count {
+      flex: 1 1 120px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .mode-group {
+      display: flex;
+      gap: 16px;
+      user-select: none;
+      font-size: 15px;
+    }
+
+    .mode-group label {
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .buttons {
+      display: flex;
+      gap: 14px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+      justify-content: center;
+    }
+
+    #resumeNotice {
+      font-size: 14px;
+      margin-top: 10px;
+      text-align: center;
+      color: var(--green);
+      font-weight: 600;
+    }
+
+    #status {
+      margin-top: 12px;
+      font-weight: 700;
+      font-size: 18px;
+      min-height: 26px;
+      text-align: center;
+      color: var(--accent);
+      user-select: none;
+    }
+
+    #counter {
+      margin-top: 8px;
+      font-size: 16px;
+      min-height: 20px;
+      text-align: center;
+      color: var(--text);
+      user-select: none;
+    }
+
+    #progressBars {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 16px;
+      margin-top: 24px;
+    }
+
+    .worker-block {
+      background: var(--panel);
+      padding: 16px;
+      border-radius: 10px;
+      box-shadow: 0 3px 8px rgba(0,0,0,0.5);
+    }
+
+    .worker-title {
+      font-size: 1rem;
+      margin-bottom: 8px;
+      opacity: 0.9;
+      user-select: none;
+      font-weight: 600;
+      color: var(--accent2);
+    }
+
+    .progress-bar {
+      width: 100%;
+      height: 12px;
+      background: #333;
+      border-radius: 6px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      width: 0;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      border-radius: 6px;
+      transition: width 0.4s ease;
+    }
+
+    #log {
+      height: 300px;
+      overflow-y: auto;
+      background: var(--panel);
+      padding: 16px;
+      margin-top: 28px;
+      border-radius: 10px;
+      font-size: 1rem;
+      line-height: 1.5em;
+      white-space: pre-wrap;
+      user-select: text;
+      color: var(--text);
+      box-shadow: inset 0 0 8px rgba(0,0,0,0.8);
+    }
+
+    #log .found {
+      color: var(--green);
+      font-weight: 700;
+      animation: highlight 1.2s ease forwards;
+    }
+
+    @keyframes highlight {
+      0% { background: rgba(0,230,118,0.25); }
+      100% { background: transparent; }
+    }
+
+    @media (max-width: 600px) {
+      .input-group {
+        flex-direction: column;
+      }
+      .worker-mode-group {
+        flex-direction: column;
+        gap: 16px;
+      }
+      .mode-group {
+        justify-content: flex-start;
+      }
+      .buttons {
+        justify-content: center;
+      }
+    }
+  </style>
 </head>
 <body>
   <main>
@@ -254,11 +260,22 @@
       <button id="resetBtn">Сброс</button>
       <button id="downloadLogBtn">Скачать лог</button>
     </div>
+
+    <!-- Подсказка о наличии сохранённой сессии -->
+    <div id="resumeNotice" style="display: none;">🔁 Обнаружена сохранённая сессия — вы можете продолжить с последней позиции.</div>
+
     <div id="status">Готов</div>
     <div id="counter">Проверено: 0</div>
     <div id="progressBars"></div>
     <div id="log"></div>
   </main>
+  <script>
+    // Показываем уведомление, если есть resumeHex
+    if (localStorage.getItem('resumeHex')) {
+      document.getElementById('resumeNotice').style.display = 'block';
+      document.getElementById('toggleBtn').textContent = 'Продолжить';
+    }
+  </script>
   <script src="main.js"></script>
 </body>
 </html>
